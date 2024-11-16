@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Music Beep Game</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         :root {
             --primary-color: #4CAF50;
@@ -183,42 +182,6 @@
             0% { background-color: rgba(0, 0, 0, 0.05); }
             50% { background-color: rgba(255, 0, 0, 0.2); }
             100% { background-color: rgba(0, 0, 0, 0.05); }
-        }
-
-        /* Mobile-specific styles */
-        @media screen and (max-width: 768px) {
-            .game-container {
-                width: 100vw;
-                height: 100vh;
-                margin: 0;
-                padding: 0;
-                position: fixed;
-                top: 0;
-                left: 0;
-            }
-
-            .play-area {
-                width: 100%;
-                height: 100%;
-                margin: 0;
-                border-radius: 0; /* Remove rounded corners on mobile */
-            }
-
-            .melody-box {
-                width: 100%;
-                height: 100%;
-                position: absolute;
-                top: 0;
-                left: 0;
-            }
-
-            /* Adjust any buttons or UI elements */
-            .controls {
-                position: fixed;
-                bottom: 20px;
-                width: 100%;
-                z-index: 10;
-            }
         }
     </style>
 </head>
@@ -613,16 +576,6 @@ function flashContainer(type) {
     container.addEventListener('animationend', () => {
         container.style.animation = '';
     }, { once: true });
-}
-
-// Add touch event listeners to your interactive elements
-element.addEventListener('touchstart', handleInteraction);
-element.addEventListener('touchend', handleInteraction);
-
-// Prevent default touch behavior to avoid scrolling/zooming
-function handleInteraction(event) {
-    event.preventDefault();
-    // Your existing interaction code
 }
 </script>
 </body>
