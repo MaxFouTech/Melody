@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Music Beep Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        button {
+            font-size: 18px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .animation-container {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            margin: 20px auto;
+            overflow: hidden;
+            background-color: rgba(0, 0, 0, 0.05);
+            transition: background-color 0.3s ease;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px;
+        }
+
+        .note-visual {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        @keyframes fade-out {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            90% {
+                transform: scale(2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes click-effect {
+            0% {
+                transform: scale(1);
+                filter: brightness(1);
+            }
+            50% {
+                transform: scale(1.3);
+                filter: brightness(1.5);
+            }
+            100% {
+                transform: scale(1);
+                filter: brightness(1);
+            }
+        }
+
+        .score-container {
+            text-align: center;
+            margin: 10px;
+            font-size: 24px;
+            font-family: Arial, sans-serif;
+        }
+
+        @keyframes success-flash {
+            0% { background-color: rgba(0, 0, 0, 0.05); }
+            50% { background-color: rgba(0, 255, 0, 0.2); }
+            100% { background-color: rgba(0, 0, 0, 0.05); }
+        }
+
+        @keyframes fail-flash {
+            0% { background-color: rgba(0, 0, 0, 0.05); }
+            50% { background-color: rgba(255, 0, 0, 0.2); }
+            100% { background-color: rgba(0, 0, 0, 0.05); }
+        }
+
+        .test-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+        }
+
+        .test-button:hover {
+            background-color: #45a049;
+        }
+
+        .test-info {
+            text-align: center;
+            margin: 10px;
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Music Beep Generator</h1>
+    <div class="score-container">
+        <span>Score: <span id="score">0</span></span>
+        <br>
+        <span>Réussies: <span id="success">0</span> | Ratées: <span id="missed">0</span></span>
+    </div>
+    <div class="animation-container" id="animationBox"></div>
+    <div class="controls">
+        <button class="test-button" onclick="startTest()">Mode Test (10 notes)</button>
+        <div id="testInfo" class="test-info"></div>
+        <button onclick="playMaryHadALittleLamb()">Mary Had a Little Lamb</button>
+        <button onclick="playChristmasTree()">Jouer Mon Beau Sapin</button>
+        <button onclick="playFrereJacques()">Jouer Frère Jacques</button>
+        <button onclick="playAuClairDeLaLune()">Au Clair de la Lune</button>
+        <button onclick="playTwinkleTwinkleLittleStar()">Twinkle Twinkle Little Star</button>
+        <button onclick="playHappyBirthday()">Happy Birthday</button>
+        <button onclick="playJingleBells()">Jingle Bells</button>
+        <button onclick="playLondonBridge()">London Bridge</button>
+        <button onclick="playOldMacDonald()">Old MacDonald</button>
+        <button onclick="playRowRowRow()">Row Row Row Your Boat</button>
+        <button onclick="playHickoryDickory()">Hickory Dickory Dock</button>
+        <button onclick="playItsy()">Itsy Bitsy Spider</button>
+        <button onclick="playBaBaMoutton()">Ba Ba Black Sheep</button>
+    </div>
+
+    <script>
+        // Fonctions utilitaires à ajouter au début du script
+        const activeAnimations = [];
+
+        function calculateDistance(x1, y1, x2, y2) {
+            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        }
+
+        function findValidPosition(containerRect, minDistance = 60) {
+            const maxAttempts = 50;
+            let attempts = 0;
+            
+            while (attempts < maxAttempts) {
+                // Générer une position aléatoire
+                const x = Math.random() * (containerRect.width - 50);
+                const y = Math.random() * (containerRect.height - 50);
+                
+                // Vérifier la distance avec toutes les animations actives
+                let isValidPosition = true;
+                
+                for (const animation of activeAnimations) {
+                    const distance = calculateDistance(
+                        x, 
+                        y, 
+                        animation.x, 
+                        animation.y
+                    );
+                    
+                    if (distance < minDistance) {
+                        isValidPosition = false;
+                        break;
+                    }
+                }
+                
+                if (isValidPosition) {
+                    return { x, y };
+                }
+                
+                attempts++;
+            }
+            
+            // Si aucune position valide n'est trouvée, retourner une position aléatoire
+            return {
+                x: Math.random() * (containerRect.width - 50),
+                y: Math.random() * (containerRect.height - 50)
+            };
+        }
+
+        function getRandomBounceAnimation() {
+            const animations = [
+                'bounce-out-top',
+                'bounce-out-bottom',
+                'bounce-out-left',
+                'bounce-out-right'
+            ];
+            return animations[Math.floor(Math.random() * animations.length)];
+        }
+
+        let score = 0;
+        let successCount = 0;
+        let missedCount = 0;
+        let isTestMode = false;
+        let testNotesCount = 0;
+        let testInterval;
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('success').textContent = successCount;
+            document.getElementById('missed').textContent = missedCount;
+        }
+
+        function flashContainer(type) {
+            const container = document.getElementById('animationBox');
+            container.style.animation = `${type}-flash 0.5s ease`;
+            container.addEventListener('animationend', () => {
+                container.style.animation = '';
+            }, { once: true });
+        }
+
+        function createNoteVisual(freq, duration) {
+            const visual = document.createElement('div');
+            visual.className = 'note-visual';
+            
+            const container = document.getElementById('animationBox');
+            const containerRect = container.getBoundingClientRect();
+            
+            // Trouver une position valide
+            const position = findValidPosition(containerRect);
+            
+            visual.style.left = position.x + 'px';
+            visual.style.top = position.y + 'px';
+            
+            // Couleur basée sur la fréquence
+            const hue = (freq - 250) % 360;
+            visual.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+            
+            // Définir la durée de l'animation de fade-out
+            visual.style.animation = `fade-out ${duration/1000}s ease-out`;
+            
+            let isClicked = false;
+            
+            // Ajouter aux animations actives
+            const animationInfo = {
+                element: visual,
+                x: position.x,
+                y: position.y
+            };
+            activeAnimations.push(animationInfo);
+            
+            // Corriger l'interaction au clic
+            visual.addEventListener('mousedown', function(e) {
+                if (!isClicked) {
+                    e.preventDefault(); // Empêcher la sélection du texte
+                    isClicked = true;
+                    this.style.pointerEvents = 'none';
+                    
+                    // Choisir une animation de rebond aléatoire
+                    const bounceAnimation = getRandomBounceAnimation();
+                    this.style.animation = `${bounceAnimation} 1s cubic-bezier(0.36, 0, 0.66, -0.56)`;
+                    
+                    // Mettre à jour le score
+                    score += 10;
+                    successCount++;
+                    updateScore();
+                    flashContainer('success');
+                    
+                    // Retirer de la liste des animations actives
+                    const index = activeAnimations.findIndex(a => a.element === visual);
+                    if (index > -1) {
+                        activeAnimations.splice(index, 1);
+                    }
+
+                    // Supprimer l'élément après l'animation de rebond
+                    this.addEventListener('animationend', function(e) {
+                        if (e.animationName.includes('bounce-out')) {
+                            this.remove();
+                        }
+                    }, { once: true });
+                }
+            });
+            
+            // Gérer la fin de l'animation fade-out (note ratée)
+            visual.addEventListener('animationend', function(e) {
+                if (e.animationName === 'fade-out' && !isClicked) {
+                    score = Math.max(0, score - 5);
+                    missedCount++;
+                    updateScore();
+                    flashContainer('fail');
+                    
+                    const index = activeAnimations.findIndex(a => a.element === visual);
+                    if (index > -1) {
+                        activeAnimations.splice(index, 1);
+                    }
+                    this.remove();
+                }
+            });
+
+            container.appendChild(visual);
+        }
+
+        function playTone(freq, duration) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Passer la durée à createNoteVisual
+            createNoteVisual(freq, duration);
+
+            oscillator.start();
+            setTimeout(() => {
+                oscillator.stop();
+                audioContext.close();
+            }, duration);
+        }
+
+        function resetScore() {
+            score = 0;
+            successCount = 0;
+            missedCount = 0;
+            updateScore();
+        }
+
+        function playMaryHadALittleLamb() {
+            resetScore();
+            const notes = [
+                { freq: 440, duration: 500 }, // A4
+                { freq: 392, duration: 500 }, // G4
+                { freq: 349, duration: 500 }, // F4
+                { freq: 392, duration: 500 }, // G4
+                { freq: 440, duration: 500 }, // A4
+                { freq: 440, duration: 500 }, // A4
+                { freq: 440, duration: 1000 }, // A4 (longer)
+                { freq: 392, duration: 500 }, // G4
+                { freq: 392, duration: 500 }, // G4
+                { freq: 392, duration: 1000 }, // G4 (longer)
+                { freq: 440, duration: 500 }, // A4
+                { freq: 440, duration: 500 }, // A4
+                { freq: 440, duration: 1000 }, // A4 (longer)
+                { freq: 440, duration: 500 }, // A4
+                { freq: 392, duration: 500 }, // G4
+                { freq: 349, duration: 500 }, // F4
+                { freq: 392, duration: 500 }, // G4
+            ];
+            playSequence(notes);
+        }
+
+        function playSequence(notes) {
+            let delay = 0;
+            notes.forEach(note => {
+                setTimeout(() => playTone(note.freq, note.duration), delay);
+                delay += note.duration;
+            });
+        }
+
+        function playChristmasTree() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 500 }, // G4
+                { freq: 440, duration: 500 }, // A4
+                { freq: 392, duration: 500 }, // G4
+                { freq: 329.63, duration: 500 }, // E4
+                { freq: 523.25, duration: 500 }, // C5
+                { freq: 493.88, duration: 500 }, // B4
+                { freq: 440, duration: 1000 }, // A4 (longer)
+
+                { freq: 392, duration: 500 }, // G4
+                { freq: 440, duration: 500 }, // A4
+                { freq: 392, duration: 500 }, // G4
+                { freq: 329.63, duration: 500 }, // E4
+                { freq: 523.25, duration: 500 }, // C5
+                { freq: 493.88, duration: 500 }, // B4
+                { freq: 440, duration: 1000 }, // A4 (longer)
+
+                { freq: 349.23, duration: 500 }, // F4
+                { freq: 587.33, duration: 500 }, // D5
+                { freq: 587.33, duration: 500 }, // D5
+                { freq: 523.25, duration: 500 }, // C5
+                { freq: 493.88, duration: 500 }, // B4
+                { freq: 440, duration: 500 }, // A4
+                { freq: 392, duration: 1000 }, // G4 (longer)
+            ];
+            playSequence(notes);
+        }
+
+        function playFrereJacques() {
+            resetScore();
+            const notes = [
+                // Frère Jacques
+                { freq: 392, duration: 500 }, // G4 - Frè
+                { freq: 440, duration: 500 }, // A4 - re
+                { freq: 493.88, duration: 500 }, // B4 - Jac
+                { freq: 392, duration: 500 }, // G4 - ques
+
+                // Frère Jacques
+                { freq: 392, duration: 500 }, // G4 - Frè
+                { freq: 440, duration: 500 }, // A4 - re
+                { freq: 493.88, duration: 500 }, // B4 - Jac
+                { freq: 392, duration: 500 }, // G4 - ques
+
+                // Dormez-vous?
+                { freq: 493.88, duration: 500 }, // B4 - Dor
+                { freq: 523.25, duration: 500 }, // C5 - mez
+                { freq: 587.33, duration: 1000 }, // D5 - vous?
+
+                // Dormez-vous?
+                { freq: 493.88, duration: 500 }, // B4 - Dor
+                { freq: 523.25, duration: 500 }, // C5 - mez
+                { freq: 587.33, duration: 1000 }, // D5 - vous?
+
+                // Sonnez les matines
+                { freq: 587.33, duration: 400 }, // D5 - Son
+                { freq: 659.25, duration: 400 }, // E5 - nez
+                { freq: 587.33, duration: 400 }, // D5 - les
+                { freq: 523.25, duration: 400 }, // C5 - ma
+                { freq: 493.88, duration: 400 }, // B4 - ti
+                { freq: 392, duration: 400 }, // G4 - nes
+
+                // Sonnez les matines
+                { freq: 587.33, duration: 400 }, // D5 - Son
+                { freq: 659.25, duration: 400 }, // E5 - nez
+                { freq: 587.33, duration: 400 }, // D5 - les
+                { freq: 523.25, duration: 400 }, // C5 - ma
+                { freq: 493.88, duration: 400 }, // B4 - ti
+                { freq: 392, duration: 400 }, // G4 - nes
+
+                // Ding Dang Dong
+                { freq: 392, duration: 500 }, // G4 - Ding
+                { freq: 293.66, duration: 500 }, // D4 - Dang
+                { freq: 392, duration: 1000 }, // G4 - Dong
+
+                // Ding Dang Dong
+                { freq: 392, duration: 500 }, // G4 - Ding
+                { freq: 293.66, duration: 500 }, // D4 - Dang
+                { freq: 392, duration: 1000 }, // G4 - Dong
+            ];
+            playSequence(notes);
+        }
+
+        function playAuClairDeLaLune() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 500 }, // G4 - Au
+                { freq: 392, duration: 500 }, // G4 - clair
+                { freq: 392, duration: 500 }, // G4 - de
+                { freq: 440, duration: 500 }, // A4 - la
+                { freq: 392, duration: 1000 }, // G4 - lu-
+                { freq: 349.23, duration: 1000 }, // F4 - ne
+                { freq: 392, duration: 500 }, // G4 - Mon
+                { freq: 392, duration: 500 }, // G4 - a-
+                { freq: 392, duration: 500 }, // G4 - mi
+                { freq: 440, duration: 500 }, // A4 - Pier-
+                { freq: 392, duration: 1000 }, // G4 - rot
+            ];
+            playSequence(notes);
+        }
+
+        function playTwinkleTwinkleLittleStar() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 500 }, // G4 - Twin-
+                { freq: 392, duration: 500 }, // G4 - kle
+                { freq: 587.33, duration: 500 }, // D5 - twin-
+                { freq: 587.33, duration: 500 }, // D5 - kle
+                { freq: 659.25, duration: 500 }, // E5 - lit-
+                { freq: 659.25, duration: 500 }, // E5 - tle
+                { freq: 587.33, duration: 1000 }, // D5 - star
+            ];
+            playSequence(notes);
+        }
+
+        function playHappyBirthday() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 300 }, // G4 - Hap-
+                { freq: 392, duration: 300 }, // G4 - py
+                { freq: 440, duration: 500 }, // A4 - birth-
+                { freq: 392, duration: 500 }, // G4 - day
+                { freq: 523.25, duration: 500 }, // C5 - to
+                { freq: 493.88, duration: 1000 }, // B4 - you
+            ];
+            playSequence(notes);
+        }
+
+        function playJingleBells() {
+            resetScore();
+            const notes = [
+                { freq: 440, duration: 400 }, // A4 - Jin-
+                { freq: 440, duration: 400 }, // A4 - gle
+                { freq: 440, duration: 800 }, // A4 - bells
+                { freq: 440, duration: 400 }, // A4 - Jin-
+                { freq: 440, duration: 400 }, // A4 - gle
+                { freq: 440, duration: 800 }, // A4 - bells
+            ];
+            playSequence(notes);
+        }
+
+        function playLondonBridge() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 500 }, // G4 - Lon-
+                { freq: 440, duration: 500 }, // A4 - don
+                { freq: 392, duration: 500 }, // G4 - Bridge
+                { freq: 349.23, duration: 500 }, // F4 - is
+                { freq: 392, duration: 500 }, // G4 - fall-
+                { freq: 349.23, duration: 500 }, // F4 - ing
+                { freq: 329.63, duration: 1000 }, // E4 - down
+            ];
+            playSequence(notes);
+        }
+
+        function playOldMacDonald() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 400 }, // G4 - Old
+                { freq: 392, duration: 400 }, // G4 - Mac-
+                { freq: 392, duration: 400 }, // G4 - Don-
+                { freq: 293.66, duration: 400 }, // D4 - ald
+                { freq: 392, duration: 400 }, // G4 - had
+                { freq: 392, duration: 400 }, // G4 - a
+                { freq: 440, duration: 800 }, // A4 - farm
+            ];
+            playSequence(notes);
+        }
+
+        function playRowRowRow() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 400 }, // G4 - Row
+                { freq: 392, duration: 400 }, // G4 - row
+                { freq: 392, duration: 400 }, // G4 - row
+                { freq: 440, duration: 400 }, // A4 - your
+                { freq: 493.88, duration: 800 }, // B4 - boat
+            ];
+            playSequence(notes);
+        }
+
+        function playHickoryDickory() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 300 }, // G4 - Hick-
+                { freq: 440, duration: 300 }, // A4 - o-
+                { freq: 493.88, duration: 300 }, // B4 - ry
+                { freq: 392, duration: 300 }, // G4 - Dick-
+                { freq: 440, duration: 300 }, // A4 - o-
+                { freq: 493.88, duration: 300 }, // B4 - ry
+            ];
+            playSequence(notes);
+        }
+
+        function playItsy() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 400 }, // G4 - The
+                { freq: 440, duration: 400 }, // A4 - it-
+                { freq: 493.88, duration: 400 }, // B4 - sy
+                { freq: 440, duration: 400 }, // A4 - bit-
+                { freq: 392, duration: 400 }, // G4 - sy
+                { freq: 440, duration: 400 }, // A4 - spi-
+                { freq: 493.88, duration: 800 }, // B4 - der
+            ];
+            playSequence(notes);
+        }
+
+        function playBaBaMoutton() {
+            resetScore();
+            const notes = [
+                { freq: 392, duration: 400 }, // G4 - Baa
+                { freq: 392, duration: 400 }, // G4 - baa
+                { freq: 440, duration: 400 }, // A4 - black
+                { freq: 440, duration: 400 }, // A4 - sheep
+                { freq: 392, duration: 800 }, // G4 - have
+                { freq: 440, duration: 400 }, // A4 - you
+                { freq: 493.88, duration: 800 }, // B4 - wool?
+            ];
+            playSequence(notes);
+        }
+
+        function startTest() {
+            // Désactiver le bouton pendant le test
+            document.querySelector('.test-button').disabled = true;
+            
+            // Désactiver tous les autres boutons
+            const buttons = document.querySelectorAll('button:not(.test-button)');
+            buttons.forEach(button => button.disabled = true);
+            
+            // Réinitialiser le score
+            resetScore();
+            
+            isTestMode = true;
+            testNotesCount = 0;
+            
+            // Afficher le compteur
+            const testInfo = document.getElementById('testInfo');
+            testInfo.textContent = 'Notes restantes: 10';
+            
+            // Lancer la séquence de test
+            playTestSequence();
+        }
+
+        function playTestSequence() {
+            if (testNotesCount < 10) {
+                // Générer une fréquence aléatoire entre 300 et 700 Hz
+                const freq = Math.random() * (700 - 300) + 300;
+                
+                // Jouer la note pendant 2 secondes
+                playTone(freq, 2000);
+                createNoteVisual(freq, 2000);
+                
+                testNotesCount++;
+                
+                // Mettre à jour le compteur
+                document.getElementById('testInfo').textContent = 
+                    `Notes restantes: ${10 - testNotesCount}`;
+                
+                // Attendre 2 secondes avant la prochaine note
+                setTimeout(playTestSequence, 2000);
+            } else {
+                // Fin du test
+                endTest();
+            }
+        }
+
+        function endTest() {
+            isTestMode = false;
+            
+            // Réactiver les boutons
+            document.querySelector('.test-button').disabled = false;
+            const buttons = document.querySelectorAll('button:not(.test-button)');
+            buttons.forEach(button => button.disabled = false);
+            
+            // Afficher le résultat
+            const accuracy = (successCount / 10 * 100).toFixed(1);
+            document.getElementById('testInfo').textContent = 
+                `Test terminé! Score: ${score} | Précision: ${accuracy}%`;
+        }
+    </script>
+</body>
+</html>

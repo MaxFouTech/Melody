@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Music Beep Game</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --hover-color: #45a049;
+            --background-color: #f5f5f5;
+            --card-color: #ffffff;
+            --text-color: #333333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        .screen {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        /* Selection Screen */
+        .song-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .song-card {
+            background: var(--card-color);
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .song-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .song-title {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .song-info {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .difficulty {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .difficulty-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ddd;
+        }
+
+        .difficulty-dot.active {
+            background-color: var(--primary-color);
+        }
+
+        /* Game Screen */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background-color: var(--hover-color);
+        }
+
+        .button.secondary {
+            background-color: #666;
+        }
+
+        .button.secondary:hover {
+            background-color: #555;
+        }
+
+        /* ... existing styles for animation-container, etc ... */
+
+        @keyframes bounce-out-top {
+            0% { transform: translateY(0); }
+            20% { transform: translateY(-20px); }
+            100% { transform: translateY(-200px); opacity: 0; }
+        }
+
+        @keyframes bounce-out-bottom {
+            0% { transform: translateY(0); }
+            20% { transform: translateY(20px); }
+            100% { transform: translateY(200px); opacity: 0; }
+        }
+
+        @keyframes bounce-out-left {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-20px); }
+            100% { transform: translateX(-200px); opacity: 0; }
+        }
+
+        @keyframes bounce-out-right {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(20px); }
+            100% { transform: translateX(200px); opacity: 0; }
+        }
+
+        .animation-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            margin: 20px auto;
+            overflow: hidden;
+            background-color: rgba(0, 0, 0, 0.05);
+            transition: background-color 0.3s ease;
+        }
+
+        .note-visual {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        @keyframes fade-out {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            90% {
+                transform: scale(2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes success-flash {
+            0% { background-color: rgba(0, 0, 0, 0.05); }
+            50% { background-color: rgba(0, 255, 0, 0.2); }
+            100% { background-color: rgba(0, 0, 0, 0.05); }
+        }
+
+        @keyframes fail-flash {
+            0% { background-color: rgba(0, 0, 0, 0.05); }
+            50% { background-color: rgba(255, 0, 0, 0.2); }
+            100% { background-color: rgba(0, 0, 0, 0.05); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Selection Screen -->
+    <div id="selectionScreen" class="screen active">
+        <h1>Choisissez votre mélodie</h1>
+        <div class="song-grid" id="songGrid">
+            <!-- Songs will be added here dynamically -->
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="screen">
+        <div class="game-header">
+            <h1 id="currentSong">Titre de la mélodie</h1>
+            <div>
+                <button class="button secondary" onclick="showSelectionScreen()">Changer de mélodie</button>
+                <button class="button" onclick="startGame()">Rejouer</button>
+            </div>
+        </div>
+        <div class="score-container">
+            <span>Score: <span id="score">0</span></span>
+            <br>
+            <span>Réussies: <span id="success">0</span> | Ratées: <span id="missed">0</span></span>
+        </div>
+        <div class="animation-container" id="animationBox"></div>
+    </div>
+
+<script>
+function playSequence(notes) {
+    let delay = 0;
+    notes.forEach(note => {
+        setTimeout(() => {
+            playTone(note.freq, note.duration);
+        }, delay);
+        delay += note.duration;
+    });
+}
+
+function playMaryHadALittleLamb() {
+    const notes = [
+        { freq: 392, duration: 500 }, // G4
+        { freq: 349.23, duration: 500 }, // F4
+        { freq: 329.63, duration: 500 }, // E4
+        { freq: 349.23, duration: 500 }, // F4
+        { freq: 392, duration: 500 }, // G4
+        { freq: 392, duration: 500 }, // G4
+        { freq: 392, duration: 1000 }, // G4
+        { freq: 349.23, duration: 500 }, // F4
+        { freq: 349.23, duration: 500 }, // F4
+        { freq: 349.23, duration: 1000 }, // F4
+        { freq: 392, duration: 500 }, // G4
+        { freq: 440, duration: 500 }, // A4
+        { freq: 440, duration: 1000 }, // A4
+    ];
+    playSequence(notes);
+}
+
+function playFrereJacques() {
+    const notes = [
+        // Frère Jacques
+        { freq: 392, duration: 500 }, // G4 - Frè
+        { freq: 440, duration: 500 }, // A4 - re
+        { freq: 493.88, duration: 500 }, // B4 - Jac
+        { freq: 392, duration: 500 }, // G4 - ques
+
+        // Frère Jacques
+        { freq: 392, duration: 500 }, // G4 - Frè
+        { freq: 440, duration: 500 }, // A4 - re
+        { freq: 493.88, duration: 500 }, // B4 - Jac
+        { freq: 392, duration: 500 }, // G4 - ques
+
+        // Dormez-vous?
+        { freq: 493.88, duration: 500 }, // B4 - Dor
+        { freq: 523.25, duration: 500 }, // C5 - mez
+        { freq: 587.33, duration: 1000 }, // D5 - vous?
+    ];
+    playSequence(notes);
+}
+
+function playChristmasTree() {
+    const notes = [
+        { freq: 392, duration: 500 }, // G4
+        { freq: 440, duration: 500 }, // A4
+        { freq: 392, duration: 500 }, // G4
+        { freq: 329.63, duration: 500 }, // E4
+        { freq: 523.25, duration: 500 }, // C5
+        { freq: 493.88, duration: 500 }, // B4
+        { freq: 440, duration: 1000 }, // A4 (longer)
+
+        { freq: 392, duration: 500 }, // G4
+        { freq: 440, duration: 500 }, // A4
+        { freq: 392, duration: 500 }, // G4
+        { freq: 329.63, duration: 500 }, // E4
+    ];
+    playSequence(notes);
+}
+
+function startTest() {
+    // Désactiver le bouton pendant le test
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => button.disabled = true);
+    
+    // Réinitialiser le score
+    resetScore();
+    
+    testNotesCount = 0;
+    
+    // Lancer la séquence de test
+    playTestSequence();
+}
+
+let testNotesCount = 0;
+
+function playTestSequence() {
+    if (testNotesCount < 10) {
+        // Générer une fréquence aléatoire entre 300 et 700 Hz
+        const freq = Math.random() * (700 - 300) + 300;
+        
+        // Jouer la note pendant 2 secondes
+        playTone(freq, 2000);
+        
+        testNotesCount++;
+        
+        // Attendre 2 secondes avant la prochaine note
+        setTimeout(playTestSequence, 2000);
+    } else {
+        // Fin du test
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => button.disabled = false);
+        
+        // Afficher le résultat
+        const accuracy = (successCount / 10 * 100).toFixed(1);
+        alert(`Test terminé! Score: ${score} | Précision: ${accuracy}%`);
+    }
+}
+
+const songs = [
+    {
+        id: 'maryHadALittleLamb',
+        title: 'Mary Had a Little Lamb',
+        notes: 13,
+        difficulty: 2,
+        duration: '6.5s',
+        playFunction: playMaryHadALittleLamb
+    },
+    {
+        id: 'frereJacques',
+        title: 'Frère Jacques',
+        notes: 11,
+        difficulty: 3,
+        duration: '5.5s',
+        playFunction: playFrereJacques
+    },
+    {
+        id: 'christmasTree',
+        title: 'Mon Beau Sapin',
+        notes: 11,
+        difficulty: 2,
+        duration: '5.5s',
+        playFunction: playChristmasTree
+    },
+    {
+        id: 'test',
+        title: 'Mode Test (10 notes)',
+        notes: 10,
+        difficulty: 1,
+        duration: '20s',
+        playFunction: startTest
+    }
+];
+
+function createSongCard(song) {
+    return `
+        <div class="song-card" onclick="selectSong('${song.id}')">
+            <div class="song-title">${song.title}</div>
+            <div class="song-info">
+                ${song.notes} notes • ${song.duration}
+            </div>
+            <div class="difficulty">
+                ${Array(5).fill(0).map((_, i) => `
+                    <div class="difficulty-dot ${i < song.difficulty ? 'active' : ''}"></div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function initializeSongGrid() {
+    const grid = document.getElementById('songGrid');
+    grid.innerHTML = songs.map(createSongCard).join('');
+}
+
+function selectSong(songId) {
+    const song = songs.find(s => s.id === songId);
+    if (song) {
+        document.getElementById('currentSong').textContent = song.title;
+        document.getElementById('selectionScreen').classList.remove('active');
+        document.getElementById('gameScreen').classList.add('active');
+        resetScore();
+        song.playFunction();
+    }
+}
+
+function showSelectionScreen() {
+    document.getElementById('gameScreen').classList.remove('active');
+    document.getElementById('selectionScreen').classList.add('active');
+}
+
+function startGame() {
+    const currentTitle = document.getElementById('currentSong').textContent;
+    const song = songs.find(s => s.title === currentTitle);
+    if (song) {
+        resetScore();
+        song.playFunction();
+    }
+}
+
+let score = 0;
+let successCount = 0;
+let missedCount = 0;
+
+function resetScore() {
+    score = 0;
+    successCount = 0;
+    missedCount = 0;
+    updateScoreDisplay();
+}
+
+function updateScore(points) {
+    score += points;
+    if (points > 0) {
+        successCount++;
+    } else {
+        missedCount++;
+    }
+    updateScoreDisplay();
+}
+
+function updateScoreDisplay() {
+    document.getElementById('score').textContent = score;
+    document.getElementById('success').textContent = successCount;
+    document.getElementById('missed').textContent = missedCount;
+}
+
+// Place this code just before the "Initialize the app" line
+document.addEventListener('DOMContentLoaded', initializeSongGrid);
+
+// ... rest of your existing code ...
+
+function playTone(freq, duration) {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Create visual element for the note
+    createNoteVisual(freq, duration);
+
+    oscillator.start();
+    setTimeout(() => {
+        oscillator.stop();
+        audioContext.close();
+    }, duration);
+}
+
+// Add utility functions for animations
+const activeAnimations = [];
+
+function calculateDistance(x1, y1, x2, y2) {
+    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+}
+
+function findValidPosition(containerRect, minDistance = 60) {
+    const maxAttempts = 50;
+    let attempts = 0;
+    
+    while (attempts < maxAttempts) {
+        const x = Math.random() * (containerRect.width - 50);
+        const y = Math.random() * (containerRect.height - 50);
+        
+        let isValidPosition = true;
+        
+        for (const animation of activeAnimations) {
+            const distance = calculateDistance(x, y, animation.x, animation.y);
+            if (distance < minDistance) {
+                isValidPosition = false;
+                break;
+            }
+        }
+        
+        if (isValidPosition) {
+            return { x, y };
+        }
+        
+        attempts++;
+    }
+    
+    return {
+        x: Math.random() * (containerRect.width - 50),
+        y: Math.random() * (containerRect.height - 50)
+    };
+}
+
+function createNoteVisual(freq, duration) {
+    const visual = document.createElement('div');
+    visual.className = 'note-visual';
+    
+    const container = document.getElementById('animationBox');
+    const containerRect = container.getBoundingClientRect();
+    
+    const position = findValidPosition(containerRect);
+    
+    visual.style.left = position.x + 'px';
+    visual.style.top = position.y + 'px';
+    
+    const hue = (freq - 250) % 360;
+    visual.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+    visual.style.animation = `fade-out ${duration/1000}s ease-out`;
+    
+    let isClicked = false;
+    
+    const animationInfo = {
+        element: visual,
+        x: position.x,
+        y: position.y
+    };
+    activeAnimations.push(animationInfo);
+    
+    visual.addEventListener('mousedown', function(e) {
+        if (!isClicked) {
+            e.preventDefault();
+            isClicked = true;
+            this.style.pointerEvents = 'none';
+            
+            // Stop the fade-out animation
+            this.style.animation = 'none';
+            
+            // Add a subtle "clicked" effect
+            this.style.transform = 'scale(1.2)';
+            this.style.opacity = '0.7';
+            this.style.boxShadow = '0 0 10px rgba(255,255,255,0.8)';
+            
+            score += 10;
+            successCount++;
+            updateScoreDisplay();
+            flashContainer('success');
+            
+            const index = activeAnimations.findIndex(a => a.element === visual);
+            if (index > -1) {
+                activeAnimations.splice(index, 1);
+            }
+        }
+    });
+    
+    visual.addEventListener('animationend', function(e) {
+        if (e.animationName === 'fade-out' && !isClicked) {
+            score = Math.max(0, score - 5);
+            missedCount++;
+            updateScoreDisplay();
+            flashContainer('fail');
+            
+            const index = activeAnimations.findIndex(a => a.element === visual);
+            if (index > -1) {
+                activeAnimations.splice(index, 1);
+            }
+            this.remove();
+        }
+    });
+
+    container.appendChild(visual);
+}
+
+function getRandomBounceAnimation() {
+    const animations = [
+        'bounce-out-top',
+        'bounce-out-bottom',
+        'bounce-out-left',
+        'bounce-out-right'
+    ];
+    return animations[Math.floor(Math.random() * animations.length)];
+}
+
+function flashContainer(type) {
+    const container = document.getElementById('animationBox');
+    container.style.animation = `${type}-flash 0.5s ease`;
+    container.addEventListener('animationend', () => {
+        container.style.animation = '';
+    }, { once: true });
+}
+</script>
+</body>
+</html>
